@@ -3,10 +3,10 @@ services:
     name: digital-library-demo
     runtime: python
     rootDir: .
-    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --no-input && python manage.py migrate && python create_superuser.py"
+    buildCommand: "./build.sh"
     startCommand: "python manage.py migrate && python create_superuser.py && gunicorn Mahi.wsgi:application"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11.9
       - key: WEB_CONCURRENCY
         value: 2
