@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Circulation Records | LibreFlow{% endblock %}
+
+{% block content %}
+<div class="container-xl mt-4">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1"><i class="bi bi-arrow-repeat text-primary me-2"></i> Circulation Records</h2>
+      <p class="text-muted mb-0">Master inventory circulation log tracking active loans, returned books, due dates, and fine calculations.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'issue_book' %}" class="btn btn-primary-custom">
+        <i class="bi bi-bookmark-plus me-1"></i> Issue New Book
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Pills -->
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <a href="{% url 'circulation_list' %}" class="btn btn-sm {% if status_filter == 'all' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+      All Records ({{ records|length }})
+    </a>
+    <a href="{% url 'circulation_list' %}?status=active" class="btn btn-sm {% if status_filter == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+      Active Loans ({{ total_active }})
+    </a>
+    <a href="{% url 'circulation_list' %}?status=overdue" class="btn btn-sm {% if status_filter == 'overdue' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+      Overdue Only ({{ total_overdue }})
+    </a>
+    <a href="{% url 'circulation_list' %}?status=returned" class="btn btn-sm {% if status_filter == 'returned' %}btn-success{% else %}btn-outline-success{% endif %}">
+      Returned ({{ total_returned }})
+    </a>
+  </div>
+
+  <!-- Circulation Table -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 table-custom">
+        <thead>
+          <tr>
+            <th class="ps-4">ID</th>
+            <th>Book Title</th>
+            <th>Borrower</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Return Date</th>
+            <th>Status</th>
+            <th>Fine</th>
+            <th class="text-end pe-4">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rec in records %}
+            <tr class="{% if not rec.returned and rec.is_overdue %}table-danger table-opacity-10{% endif %}">
+              <td class="ps-4 font-monospace text-muted">#{{ rec.id }}</td>
+              <td>
+                <a href="{% url 'book_detail' rec.book.id %}" class="fw-bold text-dark text-decoration-none">
+                  {{ rec.book.title }}
+                </a>
+                <div class="small text-muted font-monospace">ISBN: {{ rec.book.isbn }}</div>
+              </td>
+              <td>
+                <a href="{% url 'member_dashboard' rec.member.id %}" class="text-dark fw-semibold text-decoration-none">
+                  {{ rec.member.name }}
+                </a>
+                <div class="small text-muted font-monospace">{{ rec.member.member_id }}</div>
+              </td>
+              <td>{{ rec.issue_date|date:"M d, Y" }}</td>
+              <td>
+                <span class="{% if not rec.returned and rec.is_overdue %}text-danger fw-bold{% else %}text-dark{% endif %}">
+                  {{ rec.due_date|date:"M d, Y" }}
+                </span>
+              </td>
+              <td>
+                {% if rec.return_date %}
+                  <span class="text-muted">{{ rec.return_date|date:"M d, Y" }}</span>
+                {% else %}
+                  <span class="text-muted fst-italic">Active Loan</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if rec.returned %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    <i class="bi bi-check-circle-fill me-1"></i> Returned
+                  </span>
+                {% elif rec.is_overdue %}
+                  <span class="badge bg-danger text-white">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Overdue ({{ rec.days_overdue }}d)
+                  </span>
+                {% else %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                    <i class="bi bi-clock-history me-1"></i> Active
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if rec.returned %}
+                  {% if rec.fine_amount > 0 %}
+                    <span class="badge bg-warning-subtle text-warning-emphasis">${{ rec.fine_amount|floatformat:2 }}</span>
+                  {% else %}
+                    <span class="text-muted small">$0.00</span>
+                  {% endif %}
+                {% elif rec.is_overdue %}
+                  <span class="text-danger fw-bold">${{ rec.current_estimated_fine|floatformat:2 }}</span>
+                {% else %}
+                  <span class="text-muted small">$0.00</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-4">
+                {% if not rec.returned %}
+                  <a href="{% url 'return_book' rec.id %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-box-arrow-in-left me-1"></i> Return
+                  </a>
+                {% else %}
+                  <span class="badge bg-light text-muted border">Completed</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="9" class="text-center py-5 text-muted">
+                No circulation records found in this category.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

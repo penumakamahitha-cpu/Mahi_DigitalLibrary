@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Interactive Due-Date & Fine Calculator | LibreFlow{% endblock %}
+
+{% block content %}
+<div class="container-xl mt-4">
+
+  <!-- Header -->
+  <div class="text-center mb-4">
+    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill mb-2">
+      <i class="bi bi-calculator me-1"></i> Library Circulation Utilities
+    </span>
+    <h2 class="fw-bold">Interactive Due-Date & Overdue Fine Calculator</h2>
+    <p class="text-muted mx-auto" style="max-width: 650px;">
+      Simulate book circulation due dates, test custom loan periods, and project overdue fines in real-time according to library policy ($1.00 / day).
+    </p>
+  </div>
+
+  <div class="row g-4 justify-content-center">
+    <!-- Calculator Form Column -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5">
+        <h4 class="fw-bold mb-4 text-dark"><i class="bi bi-sliders text-primary me-2"></i> Circulation Parameters</h4>
+
+        <!-- 1. Issue Date & Loan Duration -->
+        <div class="mb-4">
+          <label for="calc_issue_date" class="form-label fw-bold text-dark">
+            <i class="bi bi-calendar-plus text-primary me-1"></i> Issue Date
+          </label>
+          <input type="date" id="calc_issue_date" class="form-control form-control-lg" value="{{ today|date:'Y-m-d' }}">
+          <div class="form-text">The checkout date when the book was or will be borrowed.</div>
+        </div>
+
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label fw-bold text-dark mb-0">
+              <i class="bi bi-clock-history text-primary me-1"></i> Loan Duration (Days)
+            </label>
+            <span class="badge bg-primary fs-6 px-3 py-1" id="calcLoanDaysBadge">14 Days</span>
+          </div>
+
+          <div class="btn-group w-100 mb-2" role="group">
+            <button type="button" class="btn btn-outline-secondary js-calc-preset-btn" data-days="7">7 Days</button>
+            <button type="button" class="btn btn-primary active js-calc-preset-btn" data-days="14">14 Days (Standard)</button>
+            <button type="button" class="btn btn-outline-secondary js-calc-preset-btn" data-days="21">21 Days</button>
+            <button type="button" class="btn btn-outline-secondary js-calc-preset-btn" data-days="30">30 Days</button>
+          </div>
+          <input type="range" class="form-range" id="calcLoanDurationRange" min="1" max="60" value="14">
+        </div>
+
+        <!-- 2. Computed Due Date Display (read-only input) -->
+        <div class="p-3 bg-light rounded-3 border mb-4">
+          <label for="calc_due_date" class="form-label fw-bold text-dark mb-1">
+            <i class="bi bi-calendar-check text-success me-1"></i> Calculated Due Date
+          </label>
+          <input type="date" id="calc_check_due_date" class="form-control font-monospace fw-bold" readonly>
+          <div class="small text-muted mt-1" id="calcDueDateReadable"></div>
+        </div>
+
+        <!-- 3. Actual Return Date -->
+        <div class="mb-4">
+          <label for="calc_return_date" class="form-label fw-bold text-dark">
+            <i class="bi bi-calendar-event text-danger me-1"></i> Expected / Actual Return Date
+          </label>
+          <input type="date" id="calc_return_date" class="form-control form-control-lg" value="{{ today|date:'Y-m-d' }}">
+          <div class="form-text">Pick when the patron returns the book to compute overdue days and fine.</div>
+        </div>
+
+        <!-- Preset Test Scenarios -->
+        <div>
+          <div class="small text-muted fw-bold text-uppercase mb-2" style="font-size: 0.75rem;">Quick Test Scenarios:</div>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-outline-success" id="btnTestOnTime">
+              <i class="bi bi-check-circle me-1"></i> Test: Returned On-Time (0 Fine)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="btnTestOverdue5">
+              <i class="bi bi-exclamation-triangle me-1"></i> Test: 5 Days Overdue ($5 Fine)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="btnTestOverdue12">
+              <i class="bi bi-exclamation-triangle me-1"></i> Test: 12 Days Overdue ($12 Fine)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Live Results Column -->
+    <div class="col-lg-5">
+      <div class="calculator-card p-4 p-md-5 h-100 d-flex flex-direction-column justify-content-between">
+        <div>
+          <div class="d-flex align-items-center justify-content-between mb-4">
+            <h4 class="fw-bold mb-0">Fine Assessment</h4>
+            <span class="badge bg-secondary-subtle text-secondary border px-3 py-1">Rate: $1.00/day</span>
+          </div>
+
+          <!-- Result Box -->
+          <div class="calculator-result-box text-center mb-4" id="calculatorResultBox">
+            <div class="text-white-50 text-uppercase small fw-bold tracking-wider mb-2">Total Overdue Fine</div>
+            <div class="fine-display-amount mb-2" id="liveFineCalculated">$0.00</div>
+            <div class="badge bg-white bg-opacity-20 text-white px-3 py-1 rounded-pill" id="liveOverdueDaysText">
+              0 Days Overdue
+            </div>
+          </div>
+
+          <!-- Dynamic Assessment Card -->
+          <div class="card border-0 bg-light p-3 rounded-3 mb-4" id="assessmentCard">
+            <h6 class="fw-bold mb-2" id="assessmentTitle">Status: On Time</h6>
+            <p class="small text-muted mb-0" id="assessmentExplanation">
+              The return date is on or before the due date. The loan is within the standard lending period with zero penalty charges.
+            </p>
+          </div>
+
+          <!-- Formula & Policy Info -->
+          <div class="p-3 bg-white border rounded-3 small">
+            <h6 class="fw-bold mb-1 text-dark"><i class="bi bi-info-circle text-primary me-1"></i> Library Circulation Policy</h6>
+            <ul class="text-muted ps-3 mb-0">
+              <li>Standard loan period: <strong>14 days</strong></li>
+              <li>Grace period: <strong>0 days</strong></li>
+              <li>Daily fine penalty: <strong>$1.00 per calendar day</strong></li>
+              <li>Formula: <code>Fine = max(0, Return Date - Due Date) × $1.00</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-top text-center">
+          <a href="{% url 'catalog' %}" class="btn btn-primary-custom w-100">
+            <i class="bi bi-arrow-left me-1"></i> Back to Catalog
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const issueDateEl = document.getElementById('calc_issue_date');
+  const returnDateEl = document.getElementById('calc_return_date');
+  const dueDateEl = document.getElementById('calc_check_due_date');
+  const durationRange = document.getElementById('calcLoanDurationRange');
+  const durationBadge = document.getElementById('calcLoanDaysBadge');
+  const readableDue = document.getElementById('calcDueDateReadable');
+  const fineDisplay = document.getElementById('liveFineCalculated');
+  const daysOverdueText = document.getElementById('liveOverdueDaysText');
+  const assessmentCard = document.getElementById('assessmentCard');
+  const assessmentTitle = document.getElementById('assessmentTitle');
+  const assessmentExplanation = document.getElementById('assessmentExplanation');
+  const presetBtns = document.querySelectorAll('.js-calc-preset-btn');
+
+  let loanDurationDays = 14;
+
+  function updateCalculator() {
+    let issueVal = issueDateEl.value;
+    if (!issueVal) return;
+
+    let issueDate = new Date(issueVal + 'T00:00:00');
+    let dueDate = new Date(issueDate);
+    dueDate.setDate(dueDate.getDate() + parseInt(loanDurationDays, 10));
+
+    // Format dueDate
+    let yyyy = dueDate.getFullYear();
+    let mm = String(dueDate.getMonth() + 1).padStart(2, '0');
+    let dd = String(dueDate.getDate()).padStart(2, '0');
+    let dueFormatted = `${yyyy}-${mm}-${dd}`;
+
+    dueDateEl.value = dueFormatted;
+    readableDue.textContent = `Due on ${dueDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+
+    // Calculate Overdue fine
+    let retVal = returnDateEl.value;
+    if (!retVal) return;
+
+    let retDate = new Date(retVal + 'T00:00:00');
+    let diffDays = Math.ceil((retDate - dueDate) / (1000 * 60 * 60 * 24));
+    let overdueDays = Math.max(0, diffDays);
+    let fineAmount = (overdueDays * 1.00).toFixed(2);
+
+    fineDisplay.textContent = '$' + fineAmount;
+    fineDisplay.classList.toggle('has-fine', overdueDays > 0);
+    daysOverdueText.textContent = overdueDays + ' Day' + (overdueDays === 1 ? '' : 's') + ' Overdue';
+
+    if (overdueDays > 0) {
+      assessmentCard.className = 'card border-0 bg-danger-subtle p-3 rounded-3 mb-4';
+      assessmentTitle.className = 'fw-bold mb-2 text-danger';
+      assessmentTitle.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Overdue Return';
+      assessmentExplanation.textContent = `Book returned ${overdueDays} day(s) after due date. An overdue fine of $${fineAmount} is assessed at the standard $1.00/day policy.`;
+    } else {
+      assessmentCard.className = 'card border-0 bg-success-subtle p-3 rounded-3 mb-4';
+      assessmentTitle.className = 'fw-bold mb-2 text-success';
+      assessmentTitle.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> On Time Return';
+      assessmentExplanation.textContent = 'Returned within permissible borrowing period. No penalty fine assessed ($0.00).';
+    }
+  }
+
+  // Preset button clicks
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      presetBtns.forEach(b => {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-outline-secondary');
+      });
+      this.classList.add('btn-primary', 'active');
+      this.classList.remove('btn-outline-secondary');
+
+      loanDurationDays = parseInt(this.getAttribute('data-days'), 10);
+      durationRange.value = loanDurationDays;
+      durationBadge.textContent = loanDurationDays + ' Days';
+      updateCalculator();
+    });
+  });
+
+  durationRange.addEventListener('input', function() {
+    loanDurationDays = parseInt(this.value, 10);
+    durationBadge.textContent = loanDurationDays + ' Days';
+    presetBtns.forEach(b => {
+      b.classList.remove('btn-primary', 'active');
+      b.classList.add('btn-outline-secondary');
+      if (parseInt(b.getAttribute('data-days'), 10) === loanDurationDays) {
+        b.classList.add('btn-primary', 'active');
+        b.classList.remove('btn-outline-secondary');
+      }
+    });
+    updateCalculator();
+  });
+
+  issueDateEl.addEventListener('change', updateCalculator);
+  returnDateEl.addEventListener('change', updateCalculator);
+
+  // Test scenario buttons
+  document.getElementById('btnTestOnTime').addEventListener('click', function() {
+    let base = new Date();
+    issueDateEl.value = new Date(base.getTime() - 10 * 86400000).toISOString().split('T')[0];
+    loanDurationDays = 14;
+    durationRange.value = 14;
+    durationBadge.textContent = '14 Days';
+    returnDateEl.value = new Date().toISOString().split('T')[0]; // returned on day 10, due day 14 -> on time!
+    updateCalculator();
+  });
+
+  document.getElementById('btnTestOverdue5').addEventListener('click', function() {
+    let base = new Date();
+    issueDateEl.value = new Date(base.getTime() - 19 * 86400000).toISOString().split('T')[0];
+    loanDurationDays = 14;
+    durationRange.value = 14;
+    durationBadge.textContent = '14 Days';
+    returnDateEl.value = new Date().toISOString().split('T')[0]; // issued 19 days ago, due 5 days ago -> 5 days overdue!
+    updateCalculator();
+  });
+
+  document.getElementById('btnTestOverdue12').addEventListener('click', function() {
+    let base = new Date();
+    issueDateEl.value = new Date(base.getTime() - 26 * 86400000).toISOString().split('T')[0];
+    loanDurationDays = 14;
+    durationRange.value = 14;
+    durationBadge.textContent = '14 Days';
+    returnDateEl.value = new Date().toISOString().split('T')[0]; // issued 26 days ago, due 12 days ago -> 12 days overdue!
+    updateCalculator();
+  });
+
+  // Initial run
+  updateCalculator();
+});
+</script>
+{% endblock %}

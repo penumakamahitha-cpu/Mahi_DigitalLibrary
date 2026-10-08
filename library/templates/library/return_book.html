@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Return Book & Settle Fine | LibreFlow{% endblock %}
+
+{% block content %}
+<div class="container-xl mt-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+        <!-- Header -->
+        <div class="p-4 text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <span class="badge bg-white bg-opacity-20 text-white rounded-pill px-3 py-1 mb-2">
+                <i class="bi bi-box-arrow-in-left me-1"></i> Return Workflow
+              </span>
+              <h2 class="h3 fw-bold mb-1">Process Book Return</h2>
+              <p class="text-white-50 mb-0 small">Verify return date, calculate any overdue fine, and restore copy to circulation inventory.</p>
+            </div>
+            <div class="d-none d-sm-block">
+              <i class="bi bi-receipt-cutoff display-4 text-white-50"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-4 p-md-5">
+
+          <!-- Book & Member Summary Card -->
+          <div class="p-3 bg-light rounded-3 border mb-4">
+            <div class="row align-items-center g-3">
+              <div class="col-sm-2 text-center">
+                {% if record.book.cover_url %}
+                  <img src="{{ record.book.cover_url }}" alt="{{ record.book.title }}" class="rounded shadow-sm" style="width: 70px; height: 95px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=80';">
+                {% else %}
+                  <div class="bg-dark text-white rounded d-flex align-items-center justify-content-center mx-auto" style="width: 70px; height: 95px;">
+                    <i class="bi bi-book"></i>
+                  </div>
+                {% endif %}
+              </div>
+              <div class="col-sm-6">
+                <span class="badge bg-primary-subtle text-primary small">{{ record.book.genre }}</span>
+                <h5 class="fw-bold mb-1 mt-1 text-dark">{{ record.book.title }}</h5>
+                <div class="text-muted small">By {{ record.book.author.name }} | ISBN: {{ record.book.isbn }}</div>
+                <div class="text-secondary small mt-1">
+                  Borrower: <a href="{% url 'member_dashboard' record.member.id %}" class="fw-bold text-dark">{{ record.member.name }}</a> ({{ record.member.member_id }})
+                </div>
+              </div>
+              <div class="col-sm-4 text-sm-end">
+                <div class="small text-muted">Issued: <strong>{{ record.issue_date }}</strong></div>
+                <div class="small text-muted">Due Date: <strong class="text-primary">{{ record.due_date }}</strong></div>
+                <!-- Hidden input for JS calculator -->
+                <input type="hidden" id="return_due_date" value="{{ record.due_date|date:'Y-m-d' }}">
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Live Return Status & Fine Alert (Controlled by JS) -->
+          <div id="returnStatusAlert" class="alert {% if record.is_overdue %}alert-danger{% else %}alert-success{% endif %} d-flex align-items-center gap-2 mb-4">
+            {% if record.is_overdue %}
+              <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+              <div>
+                <strong>Overdue Loan:</strong> Book is <strong>{{ record.days_overdue }} day(s) overdue</strong>. Overdue fine calculated at ${{ fine_per_day }}/day is <strong>${{ initial_fine }}</strong>.
+              </div>
+            {% else %}
+              <i class="bi bi-check-circle-fill fs-5"></i>
+              <div>
+                <strong>On Time Return:</strong> Book returned on or before due date. <strong>No fine assessed ($0.00)</strong>.
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Return Form -->
+          <form method="POST" id="returnBookForm">
+            {% csrf_token %}
+
+            <div class="row g-3 mb-4">
+              <!-- Return Date Picker -->
+              <div class="col-md-6">
+                <label for="id_return_date" class="form-label fw-bold text-dark">
+                  <i class="bi bi-calendar-event me-1 text-primary"></i> Return Date
+                </label>
+                {{ form.return_date }}
+                <div class="form-text">Defaults to today. Changing this updates fine in real-time.</div>
+              </div>
+
+              <!-- Fine Amount -->
+              <div class="col-md-6">
+                <label for="id_fine_amount" class="form-label fw-bold text-dark">
+                  <i class="bi bi-cash-coin me-1 text-warning"></i> Assessed Fine ($)
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  {{ form.fine_amount }}
+                </div>
+                <div class="form-text">Calculated at ${{ fine_per_day }}/day overdue. Can be adjusted if waived.</div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="mb-4">
+              <label for="id_notes" class="form-label fw-bold text-dark">Return Inspection & Remarks</label>
+              {{ form.notes }}
+              <div class="form-text">Note any condition issues, fine payment receipt, or loan remarks.</div>
+            </div>
+
+            <!-- Business Logic Notice -->
+            <div class="alert alert-light border small text-muted mb-4">
+              <i class="bi bi-info-circle me-1 text-primary"></i>
+              <strong>Inventory Update:</strong> Submitting this return will immediately increment available copies from <strong>{{ record.book.available_copies }}</strong> to <strong>{{ record.book.available_copies|add:1 }}</strong> and close this loan record.
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex justify-content-between align-items-center">
+              <a href="{% url 'member_dashboard' record.member.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Cancel
+              </a>
+              <button type="submit" class="btn btn-success px-4 py-2 fw-bold">
+                <i class="bi bi-check2-circle me-1"></i> Complete Return & Settle
+              </button>
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

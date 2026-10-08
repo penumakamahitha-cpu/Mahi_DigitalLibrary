@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add New Book | LibreFlow{% endblock %}
+
+{% block content %}
+<div class="container-xl mt-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5">
+        <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3">
+          <div>
+            <h3 class="fw-bold mb-1"><i class="bi bi-journal-plus text-primary me-2"></i> Add New Book to Catalog</h3>
+            <p class="text-muted small mb-0">Expand the digital catalog collection with new physical or e-book titles.</p>
+          </div>
+          <a href="{% url 'add_author' %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-person-plus me-1"></i> Add Author First
+          </a>
+        </div>
+
+        <form method="POST">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+              {% for err in form.non_field_errors %}{{ err }}<br>{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Title</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors.0 }}</div>{% endif %}
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Author</label>
+              {{ form.author }}
+              {% if form.author.errors %}<div class="text-danger small">{{ form.author.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Genre</label>
+              {{ form.genre }}
+              {% if form.genre.errors %}<div class="text-danger small">{{ form.genre.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ISBN</label>
+              {{ form.isbn }}
+              {% if form.isbn.errors %}<div class="text-danger small">{{ form.isbn.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Total Copies</label>
+              {{ form.total_copies }}
+              {% if form.total_copies.errors %}<div class="text-danger small">{{ form.total_copies.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Available Copies</label>
+              {{ form.available_copies }}
+              {% if form.available_copies.errors %}<div class="text-danger small">{{ form.available_copies.errors.0 }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Cover Image URL</label>
+            {{ form.cover_url }}
+            <div class="form-text">Direct web URL to an image or photo (e.g. Unsplash or Open Library).</div>
+            {% if form.cover_url.errors %}<div class="text-danger small">{{ form.cover_url.errors.0 }}</div>{% endif %}
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-bold">Synopsis / Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors.0 }}</div>{% endif %}
+          </div>
+
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'catalog' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary-custom px-4">
+              <i class="bi bi-check-circle me-1"></i> Save Book
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

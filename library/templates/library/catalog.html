@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Book Catalog & Circulation | LibreFlow{% endblock %}
+
+{% block content %}
+<div class="container-xl mt-4">
+
+  <!-- Hero Header & Real-Time Stats Ribbon -->
+  <div class="hero-banner">
+    <div class="row align-items-center gy-4">
+      <div class="col-lg-6">
+        <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25 px-3 py-2 mb-2 rounded-pill">
+          <i class="bi bi-stars me-1"></i> E-Book & Inventory Circulation Portal
+        </span>
+        <h1 class="display-6 fw-bold mb-2">Digital Library Catalog</h1>
+        <p class="text-slate-300 mb-0 lead" style="font-size: 1rem; color: #cbd5e1;">
+          Browse available titles, search books instantly by title, author or genre, issue copies to registered patrons, and manage loan returns.
+        </p>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="row g-2 text-center">
+          <div class="col-6 col-sm-3">
+            <div class="stat-pill">
+              <div class="stat-pill-label">Titles</div>
+              <div class="stat-pill-value">{{ total_titles }}</div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="stat-pill">
+              <div class="stat-pill-label">Available</div>
+              <div class="stat-pill-value text-success">{{ available_copies_sum }}</div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="stat-pill">
+              <div class="stat-pill-label">Active Loans</div>
+              <div class="stat-pill-value text-info">{{ active_loans_count }}</div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="stat-pill {% if overdue_loans_count > 0 %}overdue-alert-pulse border-danger{% endif %}">
+              <div class="stat-pill-label">Overdue</div>
+              <div class="stat-pill-value {% if overdue_loans_count > 0 %}text-danger{% else %}text-muted{% endif %}">
+                {{ overdue_loans_count }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Filter Controls Card -->
+  <div class="search-box-card">
+    <div class="row g-3 align-items-center">
+      <!-- Instant Search Input -->
+      <div class="col-lg-6">
+        <div class="input-group search-input-group">
+          <span class="input-group-text bg-white border-end-0 text-muted ps-3">
+            <i class="bi bi-search"></i>
+          </span>
+          <input 
+            type="text" 
+            id="instantCatalogSearch" 
+            class="form-control border-start-0" 
+            placeholder="Instant search by title, author, ISBN or genre..."
+            value="{{ search_query }}"
+            autocomplete="off"
+          >
+          <button class="btn btn-outline-secondary border-start-0 d-none" type="button" id="clearSearchBtn">
+            <i class="bi bi-x-circle-fill text-muted"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Count & Action Links -->
+      <div class="col-lg-6 d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+        <div class="text-muted small me-2">
+          Showing <span id="visibleBookCount" class="fw-bold text-dark">{{ books|length }}</span> of {{ total_titles }} titles
+        </div>
+        <a href="{% url 'issue_book' %}" class="btn btn-primary-custom btn-sm">
+          <i class="bi bi-bookmark-plus me-1"></i> Issue a Book
+        </a>
+        <a href="{% url 'add_book' %}" class="btn btn-outline-custom btn-sm">
+          <i class="bi bi-plus-lg me-1"></i> Add Title
+        </a>
+      </div>
+
+      <!-- Genre Pills Filter (Interactive JS) -->
+      <div class="col-12 pt-2 border-top">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="small fw-bold text-muted text-uppercase me-1" style="font-size: 0.75rem;">Genre:</span>
+          <button type="button" class="genre-filter-btn js-genre-filter active" data-genre="all">
+            All Genres
+          </button>
+          {% for code, label in genres %}
+            <button type="button" class="genre-filter-btn js-genre-filter" data-genre="{{ code|lower }}">
+              {{ label }}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Search Results Message (Hidden by default) -->
+  <div id="noSearchResultsAlert" class="alert alert-warning text-center py-5 shadow-sm d-none">
+    <i class="bi bi-search fs-1 text-warning mb-3 d-block"></i>
+    <h5>No matching books found</h5>
+    <p class="text-muted mb-3">Try adjusting your search terms or clearing the genre filter.</p>
+    <button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('instantCatalogSearch').value=''; document.querySelector('.js-genre-filter[data-genre=all]').click();">
+      Reset Filters
+    </button>
+  </div>
+
+  <!-- Books Catalog Grid -->
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4" id="bookCatalogGrid">
+    {% for book in books %}
+      <div class="col catalog-book-item" 
+           data-title="{{ book.title|lower }}" 
+           data-author="{{ book.author.name|lower }}" 
+           data-isbn="{{ book.isbn|lower }}" 
+           data-genre="{{ book.genre|lower }}">
+        
+        <div class="book-card">
+          <!-- Book Cover with Availability Badge -->
+          <div class="book-cover-wrap">
+            {% if book.cover_url %}
+              <img src="{{ book.cover_url }}" alt="{{ book.title }} Cover" class="book-cover-img" loading="lazy" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=80';">
+            {% else %}
+              <div class="d-flex flex-column align-items-center justify-content-center text-white p-3 text-center w-100 h-100 bg-dark">
+                <i class="bi bi-book fs-1 text-info opacity-75 mb-2"></i>
+                <span class="small fw-bold px-2">{{ book.title }}</span>
+              </div>
+            {% endif %}
+
+            <!-- Availability Badge -->
+            {% if book.available_copies > 0 %}
+              <span class="book-badge-availability badge-in-stock">
+                <i class="bi bi-check-circle-fill me-1"></i> In Stock ({{ book.available_copies }}/{{ book.total_copies }})
+              </span>
+            {% else %}
+              <span class="book-badge-availability badge-out-of-stock">
+                <i class="bi bi-x-circle-fill me-1"></i> Out of Stock (0/{{ book.total_copies }})
+              </span>
+            {% endif %}
+          </div>
+
+          <!-- Book Details -->
+          <div class="book-card-body">
+            <div>
+              <span class="book-genre-badge">{{ book.genre }}</span>
+            </div>
+            <h5 class="book-title" title="{{ book.title }}">{{ book.title }}</h5>
+            <div class="book-author">
+              <i class="bi bi-person me-1 text-primary"></i> {{ book.author.name }}
+            </div>
+            <div class="book-isbn mt-auto">
+              <i class="bi bi-upc-scan me-1"></i> ISBN: {{ book.isbn }}
+            </div>
+          </div>
+
+          <!-- Card Action Buttons -->
+          <div class="book-card-footer">
+            <a href="{% url 'book_detail' book.id %}" class="btn btn-sm btn-outline-secondary flex-grow-1" title="View Details">
+              <i class="bi bi-info-circle me-1"></i> Details
+            </a>
+
+            {% if book.available_copies > 0 %}
+              <a href="{% url 'issue_book' %}?book_id={{ book.id }}" class="btn btn-sm btn-primary-custom flex-grow-1" id="issueBtn-{{ book.id }}">
+                <i class="bi bi-arrow-right-circle me-1"></i> Issue
+              </a>
+            {% else %}
+              <button class="btn btn-sm btn-secondary flex-grow-1" disabled title="No copies available to issue">
+                <i class="bi bi-slash-circle me-1"></i> Unavailable
+              </button>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    {% empty %}
+      <div class="col-12 text-center py-5">
+        <i class="bi bi-bookshelf fs-1 text-muted mb-3 d-block"></i>
+        <h4 class="text-muted">No books in catalog yet</h4>
+        <p class="text-secondary">Load sample demonstration books or add new titles manually.</p>
+        <div class="d-flex justify-content-center gap-2 mt-3">
+          <a href="{% url 'seed_sample_data' %}" class="btn btn-success">
+            <i class="bi bi-database-fill-gear me-1"></i> Load Sample Books
+          </a>
+          <a href="{% url 'add_book' %}" class="btn btn-primary-custom">
+            <i class="bi bi-plus-lg me-1"></i> Add First Book
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
